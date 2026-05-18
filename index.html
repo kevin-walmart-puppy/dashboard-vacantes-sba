@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Vacantes SBA</title>
+    <script src="/chart.min.js"></script>
+<script>
+    // ========== DIAGNÓSTICO INICIAL ==========
+    console.log("🔍 Iniciando diagnóstico...");
+    console.log("Elemento uploadScreen:", document.getElementById("uploadScreen"));
+    console.log("Elemento dashboardContainer:", document.getElementById("dashboardContainer"));
+    console.log("Elemento uploadArea:", document.getElementById("uploadArea"));
+    console.log("Elemento fileInput:", document.getElementById("fileInput"));
+    
+    window.addEventListener("error", (e) => {
+        console.error("❌ ERROR GLOBAL:", e.message, e.filename, e.lineno);
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+        console.error("❌ PROMISE REJECTION:", e.reason);
+    });
+</script>
+    <style>
+        :root {
+            --walmart-blue: #0053e2;
+            --walmart-yellow: #ffc220;
+            --walmart-red: #ea1100;
+            --walmart-green: #2a8703;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        /* SCREEN DE CARGA */
+        .upload-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--walmart-blue) 0%, #003fa0 100%);
+        }
+
+        .upload-card {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 83, 226, 0.3);
+            text-align: center;
+        }
+
+        .upload-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .upload-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--walmart-blue);
+            margin-bottom: 10px;
+        }
+
+        .upload-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            border: 3px dashed var(--walmart-blue);
+            border-radius: 15px;
+            padding: 40px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f0f4ff;
+        }
+
+        .upload-area:hover {
+            background: #e8ecff;
+            border-color: var(--walmart-yellow);
+            transform: scale(1.02);
+        }
+
+        .upload-area.dragover {
+            background: #e8ecff;
+            border-color: var(--walmart-yellow);
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: var(--walmart-blue);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #999;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--walmart-blue);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* DASHBOARD */
+        .dashboard-container {
+            display: none;
+            padding: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .dashboard-container.active {
+            display: block;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--walmart-blue) 0%, #003fa0 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 83, 226, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header-title h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header-title p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .reload-btn {
+            background: var(--walmart-yellow);
+            color: black;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .reload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 194, 32, 0.3);
+        }
+
+        /* INSIGHTS */
+        .insights-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .insight-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid var(--walmart-blue);
+            transition: all 0.3s;
+        }
+
+        .insight-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        }
+
+        .insight-card.alert {
+            border-left-color: var(--walmart-red);
+        }
+
+        .insight-card.warning {
+            border-left-color: var(--walmart-yellow);
+        }
+
+        .insight-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .insight-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #999;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .insight-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--walmart-blue);
+            margin-bottom: 6px;
+        }
+
+        .insight-description {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* KPIs */
+        .kpis-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            border-top: 4px solid var(--walmart-blue);
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .kpi-value {
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--walmart-blue);
+            margin-bottom: 8px;
+        }
+
+        .kpi-trend {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* FILTROS */
+        .filters-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .filters-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .filters-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--walmart-blue);
+            text-transform: uppercase;
+        }
+
+        .filters-toggle {
+            background: var(--walmart-blue);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .filters-toggle:hover {
+            background: #003fa0;
+            transform: translateY(-2px);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: none;
+        }
+
+        .filter-group.active {
+            display: block;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .filter-checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .filter-checkbox input {
+            cursor: pointer;
+            accent-color: var(--walmart-blue);
+        }
+
+        .filter-checkbox label {
+            margin: 0;
+            font-size: 13px;
+            cursor: pointer;
+            text-transform: none;
+            font-weight: 400;
+        }
+
+        .filters-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-apply-filters {
+            background: var(--walmart-green);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-apply-filters:hover {
+            background: #1f6d02;
+            transform: translateY(-2px);
+        }
+
+        .btn-clear-filters {
+            background: #f0f0f0;
+            color: #666;
+            border: 1px solid #ddd;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-clear-filters:hover {
+            background: #e0e0e0;
+        }
+
+        /* GRÁFICOS */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--walmart-blue);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        /* TABLA */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
+            max-height: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .table-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            flex: 1;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .table-wrapper::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: var(--walmart-blue);
+            border-bottom: 3px solid var(--walmart-blue);
+            z-index: 10;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 700;
+            color: white;
+            white-space: nowrap;
+            background: var(--walmart-blue);
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tbody tr {
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--walmart-blue);
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--walmart-blue);
+        }
+
+        .modal-close {
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-text {
+            color: #555;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+
+        /* BOTONES */
+        .btn-see {
+            background: var(--walmart-blue);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-see:hover {
+            background: #003fa0;
+            transform: scale(1.05);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 15px;
+            }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-title h1 {
+                font-size: 24px;
+            }
+
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+
+            .upload-card {
+                padding: 40px 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- SCREEN DE CARGA -->
+    <div id="uploadScreen" class="upload-screen">
+        <div class="upload-card">
+            <div class="upload-icon">📁</div>
+            <h1 class="upload-title">Dashboard Vacantes</h1>
+            <p class="upload-subtitle">Carga tu archivo Excel para ver análisis detallado de candidatos y vacantes</p>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-text">Arrastra tu archivo aquí</div>
+                <div class="upload-hint">O haz clic para seleccionar</div>
+            </div>
+
+            <input type="file" id="fileInput" accept=".xlsx,.xls" />
+
+            <div id="uploadStatus" style="margin-top: 20px; display: none;">
+                <div class="loading-spinner"></div>
+                <p style="color: #666; margin-top: 10px;">Cargando y procesando archivo...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboardContainer" class="dashboard-container">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-title">
+                <h1>📊 Dashboard Vacantes SBA</h1>
+                <p id="fileInfo">Archivo cargado exitosamente</p>
+            </div>
+            <button class="reload-btn" onclick="resetDashboard()">↻ Cambiar Archivo</button>
+        </div>
+
+        <!-- INSIGHTS -->
+        <div id="insightsContainer" class="insights-container"></div>
+
+        <!-- KPIs -->
+        <div class="kpis-container">
+            <div class="kpi-card">
+                <div class="kpi-label">📈 Total Vacantes</div>
+                <div class="kpi-value" id="kpi-total">0</div>
+                <div class="kpi-trend">Activas en el sistema</div>
+            </div>
+            <div class="kpi-card" style="border-top-color: var(--walmart-red);">
+                <div class="kpi-label">🔴 Críticas</div>
+                <div class="kpi-value" id="kpi-criticas" style="color: var(--walmart-red);">0</div>
+                <div class="kpi-trend">Requieren atención inmediata</div>
+            </div>
+            <div class="kpi-card" style="border-top-color: var(--walmart-yellow);">
+                <div class="kpi-label">⏰ Sin Avance >30d</div>
+                <div class="kpi-value" id="kpi-sin-gestion" style="color: var(--walmart-yellow);">0</div>
+                <div class="kpi-trend">Sin movimiento importante</div>
+            </div>
+            <div class="kpi-card" style="border-top-color: var(--walmart-green);">
+                <div class="kpi-label">📅 Promedio Días</div>
+                <div class="kpi-value" id="kpi-promedio" style="color: var(--walmart-green);">0</div>
+                <div class="kpi-trend">Vacantes abiertas</div>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filters-container">
+            <div class="filters-header">
+                <span class="filters-title">⚙️ Filtros Avanzados</span>
+                <button class="filters-toggle" onclick="toggleFilters()">🔍 Mostrar Filtros</button>
+            </div>
+            <div class="filters-grid" id="filtersGrid" style="display: none;">
+                <div class="filter-group active">
+                    <label>Mercado</label>
+                    <div class="filter-checkboxes" id="checkboxes-mercado"></div>
+                </div>
+                <div class="filter-group active">
+                    <label>Responsable</label>
+                    <div class="filter-checkboxes" id="checkboxes-responsable"></div>
+                </div>
+                <div class="filter-group active">
+                    <label>Cargo/Rol</label>
+                    <div class="filter-checkboxes" id="checkboxes-rol"></div>
+                </div>
+                <div class="filter-group active">
+                    <label>Próximo Paso</label>
+                    <div class="filter-checkboxes" id="checkboxes-proximo-paso"></div>
+                </div>
+                <div class="filter-group active">
+                    <label>Estado</label>
+                    <div class="filter-checkboxes" id="checkboxes-estado"></div>
+                </div>
+                <div class="filter-group active">
+                    <label>🔴 Criticidad</label>
+                    <div class="filter-checkboxes" id="checkboxes-criticidad"></div>
+                </div>
+            </div>
+            <div class="filters-actions" id="filtersActions" style="display: none;">
+                <button class="btn-clear-filters" onclick="clearAllFilters()">Limpiar Filtros</button>
+                <button class="btn-apply-filters" onclick="applyFilters()">Aplicar Filtros</button>
+            </div>
+        </div>
+
+        <!-- TABLA -->
+        <h2 style="font-size: 24px; font-weight: 700; color: #333; margin: 40px 0 20px; padding-bottom: 10px; border-bottom: 3px solid var(--walmart-blue);">📋 Detalles de Candidatos</h2>
+        
+        <div class="table-container">
+            <div class="table-title">Todos los candidatos y vacantes</div>
+            <div class="table-wrapper">
+                <table>
+                    <thead id="table-head">
+                        <tr>
+                            <th>Cargando...</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr>
+                            <td style="text-align: center; padding: 40px; color: #999;">Cargando datos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <h2 style="font-size: 24px; font-weight: 700; color: #333; margin: 40px 0 20px; padding-bottom: 10px; border-bottom: 3px solid var(--walmart-blue);">📊 Análisis Visual</h2>
+        
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-title">Distribución por Criticidad</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-criticidad"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Tiempo Abierto (Días)</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-tiempo-abierto"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Carga por Responsable</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-responsable"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Top Cargos/Roles</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-rol"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Próximos Pasos</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-proximo-paso"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Distribución por Estado</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-estado"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Vacantes por Mercado</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-mercado"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Dias sin Avance</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-dias-sin-avance"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Tasa Criticidad por Responsable</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-criticidad-responsable"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Promedio Dias por Estado</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-promedio-estado"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Vacantes Criticas por Responsable</div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-criticas-responsable"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL PARA COMENTARIOS -->
+    <div id="commentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">💬 Comentarios / Observaciones</h2>
+                <span class="modal-close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-text" id="modal-text"></div>
+        </div>
+    </div>
+
+    <script src="/dashboard.js"></script>
+</body>
+</html>
